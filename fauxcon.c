@@ -32,6 +32,7 @@
 #define _BSD_SOURCE
 #define _GNU_SOURCE
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -365,8 +366,6 @@ static void connect_user(int escape_char)
         }
     }
 
-    /* set input to 'normal' mode */
-    set_keyboard(KBD_MODE_NORMAL);
 }
 
 static void connect_string(char* sendstr)
@@ -606,6 +605,21 @@ static void usage(const char* arg0)
     exit(EXIT_FAILURE);
 }
 
+void cleanup(){
+	/* remove everything */
+    destroy_uinput();
+    
+    /* set input to 'normal' mode */
+    set_keyboard(KBD_MODE_NORMAL);
+}
+
+void term(int signum)
+{
+    printf("Received SIGTERM, exiting...\n");
+    cleanup();
+    exit (EXIT_SUCCESS);
+}
+
 int main(int argc, char* argv[])
 {
     /* verify alignment of keycode array                           */
@@ -796,15 +810,20 @@ int main(int argc, char* argv[])
                 break;
         }
     }
+    
+    /* register SIGTERM handler */
+    struct sigaction action;
+    memset(&action, 0, sizeof(struct sigaction));
+    action.sa_handler = term;
+    sigaction(SIGTERM, &action, NULL);
 
     if (((sending)&&(keep_connection))||(sending==0)) {
         printf("Reminder: Escape sequence is '<CR> %c .'\n",escape_char);
         connect_user(escape_char);
     }
-
-    /* remove everything */
-    destroy_uinput();
-
+	
+	cleanup();
+	
     return EXIT_SUCCESS;
 }
 
